@@ -1,10 +1,19 @@
 ## BBN in R tutorial from https://jacintoarias.github.io/bayesnetRtutorial/#sampling_data_from_a_bayesian_network
+## and https://bookdown.org/robertness/causalml/docs/tutorial-probabilistic-modeling-with-bayesian-networks-and-bnlearn.html#the-survey-data-dataset
 
 ## packages
 library(tidyverse)
 library(lubridate)
 # install.packages("bnlearn")
-install.packages("networkD3")
+# install.packages("networkD3")
+install.packages("Rgraphviz") ## not available on R version
+library(Rgraphviz) 
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("Rgraphviz")
+
 library(bnlearn)
 library(networkD3)
 
@@ -106,3 +115,177 @@ plotD3bn(dag)
 # Loading BNs from files --------------------------------------------------
 
 ##
+
+
+#  The bnlearn repo -------------------------------------------------------
+
+# This downloads the RData file from the repository and loads it.
+# The bn is loaded into a bn.fit variable called bn
+load(url("http://www.bnlearn.com/bnrepository/asia/asia.rda"))
+asia <- bn
+
+bn.net(asia)
+plotD3bn(asia)
+asia
+
+# Now is the time to review the parameters, this prints each node and the asociated probability table. 
+# In this case all variables are discrete so the tables would be conditional probability tables.
+
+asia
+
+asia$smoke
+
+bn.fit.barchart(asia$smoke)
+
+dataRaw <- read_csv("./data/heatAlarm-lvl1.csv")
+
+# Fit the BN --------------------------------------------------------------
+
+data(learning.test)
+learning.test
+
+# learn the network structure.
+res = pc.stable(learning.test)
+plot(res)
+# set the direction of the only undirected arc, A - B.
+res = set.arc(res, "A", "B")
+# estimate the parameters of the Bayesian network.
+fitted = bn.fit(res, learning.test)
+fitted
+# replace the parameters of the node B.
+new.cpt = matrix(c(0.1, 0.2, 0.3, 0.2, 0.5, 0.6, 0.7, 0.3, 0.1),
+                 byrow = TRUE, ncol = 3,
+                 dimnames = list(B = c("a", "b", "c"), A = c("a", "b", "c")))
+fitted$B = as.table(new.cpt)
+# the network structure is still the same.
+all.equal(res, bn.net(fitted))
+
+# learn the network structure.
+res = hc(gaussian.test)
+# estimate the parameters of the Bayesian network.
+fitted = bn.fit(res, gaussian.test)
+# replace the parameters of the node F.
+fitted$F = list(coef = c(1, 2, 3, 4, 5), sd = 3)
+# set again the original parameters
+fitted$F = lm(F ~ A + D + E + G, data = gaussian.test)
+
+# discrete Bayesian network from expert knowledge.
+net = model2network("[A][B][C|A:B]")
+net
+plot(net)
+cptA = matrix(c(0.4, 0.6), ncol = 2, dimnames = list(NULL, c("LOW", "HIGH")))
+cptB = matrix(c(0.8, 0.2), ncol = 2, dimnames = list(NULL, c("GOOD", "BAD")))
+cptA
+cptC = c(0.5, 0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8)
+dim(cptC) = c(2, 2, 2)
+cptC
+dimnames(cptC) = list("C" = c("TRUE", "FALSE"), "A" =  c("LOW", "HIGH"),
+                      "B" = c("GOOD", "BAD"))
+cptC
+cfit = custom.fit(net, dist = list(A = cptA, B = cptB, C = cptC))
+cfit
+# for ordinal nodes it is nearly the same.
+cfit = custom.fit(net, dist = list(A = cptA, B = cptB, C = cptC),
+                  ordinal = c("A", "B"))
+
+# Gaussian Bayesian network from expert knowledge.
+distA = list(coef = c("(Intercept)" = 2), sd = 1)
+distB = list(coef = c("(Intercept)" = 1), sd = 1.5)
+distC = list(coef = c("(Intercept)" = 0.5, "A" = 0.75, "B" = 1.32), sd = 0.4)
+cfit = custom.fit(net, dist = list(A = distA, B = distB, C = distC))
+
+# conditional Gaussian Bayesian network from expert knowledge.
+cptA = matrix(c(0.4, 0.6), ncol = 2, dimnames = list(NULL, c("LOW", "HIGH")))
+distB = list(coef = c("(Intercept)" = 1), sd = 1.5)
+distC = list(coef = matrix(c(1.2, 2.3, 3.4, 4.5), ncol = 2,
+                           dimnames = list(c("(Intercept)", "B"), NULL)),
+             sd = c(0.3, 0.6))
+cgfit = custom.fit(net, dist = list(A = cptA, B = distB, C = distC))
+
+
+
+
+# 2nd tutorial: create the DAG --------------------------------------------
+
+dag <- empty.graph(nodes = c("A","S","E","O","R","T"))
+arc.set <- matrix(c("A", "E",
+                    "S", "E",
+                    "E", "O",
+                    "E", "R",
+                    "O", "T",
+                    "R", "T"),
+                  byrow = TRUE, ncol = 2,
+                  dimnames = list(NULL, c("from", "to")))
+arcs(dag) <- arc.set
+nodes(dag)
+
+plot (dag)
+graphviz.plot(dag, layout = "dot")
+graphviz.plot(dag, layout = "fdp")
+graphviz.plot(dag, layout = "circo")
+
+# If you want to change the color of the nodes or the edges of your graph, you can do this easily by 
+# adding a highlight input to the graphviz.plot function.
+# Let’s assume that we want to change the color of all the nodes and edges of our dag to blue.
+hlight <- list(nodes = nodes(dag), arcs = arcs(dag),
+               col = "blue", textCol = "blue")
+pp <- graphviz.plot(dag, highlight = hlight)
+
+#The look of the arcs can be customised as follows using the edgeRenderInfo function from Rgraphviz.
+edgeRenderInfo(pp) <- list(col = c("S~E" = "black", "E~R" = "black"),
+                           lwd = c("S~E" = 3, "E~R" = 3))
+
+# Attributes being modified (i.e., col for the colour and lwd for the line width) are specified 
+# again as the elements of a list. For each attribute, we specify a list containing the arcs we want 
+# to modify and the value to use for each of them. Arcs are identified by labels of the form parent∼child, 
+# e.g., S → E is S~E.
+# Similarly, we can highlight nodes with nodeRenderInfo. We set their colour and the colour of the node labels to black and their background to grey.
+
+nodeRenderInfo(pp) <- list(col = c("S" = "black", "E" = "black", "R" = "black"),
+                           fill = c("E" = "grey"))
+
+# Once we have made all the desired modifications, we can plot the DAG again with the renderGraph 
+# function from Rgraphviz.
+
+renderGraph(pp)
+
+
+# Input probabilities manually --------------------------------------------
+# Given the DAG, the joint probability distribution of the survey data variables factorizes as follows:
+
+A.lv <- c("young", "adult", "old")
+S.lv <- c("M", "F")
+E.lv <- c("high", "uni")
+O.lv <- c("emp", "self")
+R.lv <- c("small", "big")
+T.lv <- c("car", "train", "other")
+
+A.prob <- array(c(0.3,0.5,0.2), dim = 3, dimnames = list(A = A.lv))
+S.prob <- array(c(0.6,0.4), dim = 2, dimnames = list(S = S.lv))
+E.prob <- array(c(0.75,0.25,0.72,0.28,0.88,0.12,0.64,0.36,0.70,0.30,0.90,0.10), 
+                dim = c(2,3,2), dimnames = list(E = E.lv, A = A.lv, S = S.lv))
+E.prob
+
+# , , S = M
+# 
+# A
+# E      young adult  old
+# high  0.75  0.72 0.88
+# uni   0.25  0.28 0.12
+# 
+# , , S = F
+# 
+# A
+# E      young adult old
+# high  0.64   0.7 0.9
+# uni   0.36   0.3 0.1
+
+
+O.prob <- array(c(0.96,0.04,0.92,0.08), dim = c(2,2), dimnames = list(O = O.lv, E = E.lv))
+R.prob <- array(c(0.25,0.75,0.2,0.8), dim = c(2,2), dimnames = list(R = R.lv, E = E.lv))
+T.prob <- array(c(0.48,0.42,0.10,0.56,0.36,0.08,0.58,0.24,0.18,0.70,0.21,0.09), 
+                dim = c(3,2,2), dimnames = list(T = T.lv, O = O.lv, R = R.lv))
+
+cpt <- list(A = A.prob, S = S.prob, E = E.prob, O = O.prob, R = R.prob, T = T.prob)
+
+cpt
