@@ -8,8 +8,14 @@ library(lubridate)
 library(bnlearn)
 library(networkD3)
 
+library(Rgraphviz)
 
+outdir <- "Figures/"
 
+# Population info ---------------------------------------------------------
+
+pops <- read.csv("output_data/02_growth_extinction_Rates.csv")
+pops
 # Create the DAG ----------------------------------------------------------
 
 ## Each node is specified by a pair of brackets [<var_name>]. 
@@ -20,7 +26,7 @@ library(networkD3)
 # dummyBN <- model2network("[A][C][B|A][D|C][F|A:B:C][E|F]")
 # dummyBN
 
-dummyBN <- model2network("[Location][Season][MPConc|Season:Location][Nutrition|MPConc][Mortality|Nutrition]")
+dummyBN <- model2network("[Location][Season][Metapopulation][MPConc|Season:Location][Mortality|MPConc][PopulationDecline|Mortality:Metapopulation]")
 # [Nutrition|MPConc][Mortality|Nutrition][ReproductiveRate|Nutrition][PopulationDecline|Mortality:ReproductiveRate]
 class(dummyBN)
 # bn.net(dummyBN)
@@ -44,7 +50,7 @@ pp1 <- graphviz.plot(dummyBN, highlight = hlight)
 
 
 nodeRenderInfo(pp1) <- list(fontsize = 20, fill = c("Location" = "grey", "Season" = "grey", "MPConc" = "orange",
-                                    "Nutrition" = "pink", "Mortality" = "pink", "ReproductiveRate" = "green", "PopulationDecline" = "green"))
+                                     "Mortality" = "green", "PopulationDecline" = "green", "Metapopulation" = "grey"))
 # ?nodeRenderInfo
 # Once we have made all the desired modifications, we can plot the DAG again with the renderGraph 
 # function from Rgraphviz.
@@ -53,18 +59,21 @@ renderGraph(pp1)
 
 
 # Conditional Probabilities -----------------------------------------------
-
-loc.lv <- c("SiteA", "SiteB")
+## low = <100, high == >100
+## NOEC - no effect, LOEC = effect
+loc.lv <- c("Site1", "Site2")
 seas.lv <- c("Summer", "Winter")
-MP.lv <- c("high", "low")
-nutr.lv <- c("high", "low")
-mor.lv <- c("high", "low")
-RR.lv <- c("high", "low")
+MP.lv <- c("High", "Low")
+mor.lv <- c("NOEC", "LOEC")
+pop.lv <- c("none", "ReducedLow", "ReducedHigh")
+met.lv <- c("Treasure Island", "Dana Point")
+# RR.lv <- c("high", "low")
 # # PD.lv <- c("none", "low", "high")
 # PD.lv <- c("high", "low", "none")
 
 loc.prob <- array(c(0.5,0.5), dim = 2, dimnames = list(Location = loc.lv))
 seas.prob <- array(c(0.5,0.5), dim = 2, dimnames = list(Season = seas.lv))
+meta_prob <- array(c(0.5,0.5), dim = 2, dimnames = list(Metapopulation = met.lv))
 
 ## if summer
 ## Site A: high MP = 0.4, low MP = 0.6
@@ -78,15 +87,17 @@ seas.prob <- array(c(0.5,0.5), dim = 2, dimnames = list(Season = seas.lv))
 MP.prob <- array(c(0.4, 0.6, 0.3, 0.7, 0.8, 0.2, 0.9, 0.1), 
                 dim = c(2,2,2), dimnames = list(MPConc = MP.lv, Location = loc.lv, Season = seas.lv))
 
-## IF MP high: High Nutrition = 0.2, Low nutrtion = 0.8
-## IF MP low: High Nutrition = 0.6, Low nutrtion = 0.4
+MP.prob
+## IF MP high: NOEC = 0.2, LOEC = 0.8
+## IF MP low: NOEC = 0.9, LOEC = 0.1
 
-nut.prob <- array(c(0.2,0.8, 0.6, 0.4), dim = c(2,2), dimnames = list(Nutrition = nutr.lv, MPConc = MP.lv))
+# repr.prob <- array(c(0.2,0.8, 0.9, 0.1), dim = c(2,2), dimnames = list(ReproductiveRate = repr.lv, MPConc = MP.lv))
+# repr.prob
+
+## IF MP high: NOEC = 0.2, LOEC = 0.8
+## IF MP low: NOEC = 0.9, LOEC = 0.1
 # 
-# ## IF nutrition high: high mortality = 0.2, Low mortality = 0.8
-# ## IF nutrition low: High mortality = 0.75, Low mortality = 0.25
-# 
-mor.prob <- array(c(0.2,0.8,0.75,0.25), dim = c(2,2), dimnames = list(Mortality = mor.lv, Nutrition = nutr.lv))
+mor.prob <- array(c(0.2,0.8,0.9,0.1), dim = c(2,2), dimnames = list(Mortality = mor.lv, MPConc = MP.lv))
 mor.prob
 # 
 # ## IF nutrition high: high reproduction = 0.8, Low reproduction = 0.2
@@ -108,12 +119,19 @@ mor.prob
 #                 dim = c(3,2,2), dimnames = list(PopDecline = PD.lv, ReproductionRate = RR.lv, Mortality = mor.lv))
 # popdec.prob
 
-# ## IF mortality high: high decline = 0.8, Low decline = 0.1, no decline, 0.1
-# ## IF mortality low: high decline = 0.05, Low decline = 0.45, no decline = 0.5
 
-# popdec.prob <- array(c(0.8, 0.1, 0.1, 0.05, 0.45, 0.5), 
-#                                      dim = c(3,2), dimnames = list(PopDecline = PD.lv, Mortality = mor.lv))
-# popdec.prob
+## if Treasure Island: 
+# ## IF mortality NOEC: no effect = 1, ReducedHigh = 0, ReducedLow = 0
+# ## IF mortality LOEC: no effect = 0.05, ReducedHigh = 0.5, ReducedLow = 0.45
+
+## if Dana Point 
+# ## IF mortality NOEC: no effect = 1, ReducedHigh = 0, ReducedLow = 0
+# ## IF mortality LOEC: no effect = 0.05, ReducedHigh = 0.5, ReducedLow = 0.45
+
+popdec.prob <- array(c(1, 0, 0, 0.05, 0.5, 0.45, 1,0,0),
+                                     dim = c(3,2,2), dimnames = list(PopulationDecline = pop.lv, Mortality = mor.lv, 
+                                                                   Metapopulation = met.lv))
+popdec.prob
                      
 
 # cpt <- list(Location = loc.prob, Season = seas.prob, MPConc = MP.prob, Nutrition = nut.prob, 
@@ -121,16 +139,21 @@ mor.prob
 # 
 # cpt
 
-cpt <- list(Location = loc.prob, Season = seas.prob, MPConc = MP.prob, Nutrition = nut.prob, Mortality = mor.prob)
+cpt <- list(Location = loc.prob, Season = seas.prob, MPConc = MP.prob, Mortality = mor.prob, PopulationDecline = popdec.prob, Metapopulation = meta_prob)
 
 cpt
 
 
 # Model -------------------------------------------------------------------
-
-
+# install.packages("gRain")
+library(gRain)
 # fit cpt table to network
-bn <- custom.fit(dummyBN, dist=cpt)
-bn
+bn <- custom.fit(dummyBN, dist=cpt, debug = T)
 
+pdf(paste0(outdir, "simpleBBN.pdf"), width=15, height=10)
+
+graphviz.chart(bn, type = "barprob", grid = TRUE, bar.col = "darkgreen",
+               strip.bg = "lightskyblue")
+
+dev.off()
 
