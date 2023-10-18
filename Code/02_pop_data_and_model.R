@@ -47,9 +47,10 @@ m11 <- ggplot(mytilus, aes(x=Date, y=average_percent_cover), group = marine_site
   # facet_wrap(~Units, scales= "free_y")
 
 m11
+
 ### sites 
 sites <- mytilus %>%
-  select(marine_site_name, site_lat, site_long) %>%
+  dplyr::select(marine_site_name, site_lat, site_long) %>%
   distinct() %>%
   st_as_sf(coords=c( "site_long", "site_lat"), crs=4326, remove=F)
 
@@ -81,7 +82,16 @@ NPsites
 NPMytilus <- mytilus %>%
   filter(marine_site_name %in% NPsites, season_name == "Fall") ## keep to one season for now as not 
 # equal years in fall and spring
+range(NPMytilus$Year)
+NPMytilus
 
+coords<- NPMytilus %>% 
+  dplyr::select(marine_site_name, site_lat, site_long) %>%
+  distinct()
+
+head(coords)
+
+write.csv(coords, "output_data/02_sites_coords.csv")
 
 ## plot
 
@@ -288,6 +298,8 @@ sum(minpop + 0)/sims  #proportion of columns with TRUE
 
 # Population calculations on bivalves -------------------------------------
 ## function to normalise betwen 0-100
+
+
 min_max_norm <- function(x) {
   (x - min(x)) / (max(x) - min(x))
 }
@@ -450,7 +462,7 @@ MostRecent <- Biodiv %>%
   select(marine_site_name, year, percent_cover, MostRecentYear) %>%
   mutate(MatchYear = ifelse(year == MostRecentYear, "Yes", "No")) %>%
   filter(MatchYear == "Yes")
-
+MostRecent
 ### add to growth rates etc df
 
 allDF <- inner_join(exDFx, MostRecent, by = c("Site" = "marine_site_name")) %>%
@@ -506,7 +518,7 @@ sstBio <- sst %>%
 
 sstBio
 ## plot
-range(na.omit(sstBio$mean)) ## temp 9.949294 21.303438
+range(na.omit(sstBio$MeanTemp)) ## temp 14.33195 15.95332
 range(na.omit(sstBio$average_percent_cover)) ##  0.0 98.8
 ## get coeff for 2nd axis
 coeff <- 99/21
@@ -526,5 +538,154 @@ geom_line(aes(y=MeanTemp*coeff), col = "lightblue") +
 m2
 
 
+# Air temp ----------------------------------------------------------------
+exDFx
+## data 
+
+cc <- read.csv("ignore/PRISM_ppt_tmean_stable_4km_2002_2022_33.5708_-117.8377_CrystalCove.csv") %>%
+  mutate(Site = "Crystal Cove")
+sc <- read.csv("ignore/PRISM_ppt_tmean_stable_4km_2002_2022_33.5448_-117.7994_ShawsCove.csv") %>%
+  mutate(Site = "Shaws Cove")
+ti <- read.csv("ignore/PRISM_ppt_tmean_stable_4km_2002_2022_33.5134_-117.7579_TreasureIsland.csv") %>%
+  mutate(Site = "Treasure Island")
+dp <- read.csv("ignore/PRISM_ppt_tmean_stable_4km_2002_2022_33.4599_-117.7147_DanaPoint.csv") %>%
+  mutate(Site = "Dana Point")
+
+head(cc)
+head(sc)
+head(ti)
+head(dp)
+
+allTemp <- bind_rows(cc,sc,ti,dp) %>%
+  select(-"ppt..inches.")
+
+allTemp_wide <- allTemp %>%
+  pivot_wider(names_from = Site, values_from = "tmean..degrees.F.")
+
+allTemp_widecor <- cor(allTemp_wide)
 
 
+## join with pop data
+
+allTempPop <- full_join(NPMytilus, allTemp, by = c("Year" = "Date", "marine_site_name" = "Site")) %>%
+  rename(TempF = 35)
+names(allTempPop)
+
+## plot
+ggplot(allTempPop, aes(x = TempF, y = average_percent_cover), group = marine_site_name, col = marine_site_name) + 
+  geom_smooth(method = "lm", aes(group = marine_site_name, col =marine_site_name)) +
+  facet_wrap(~marine_site_name)
+
+median(na.omit(allTempPop$average_percent_cover))
+  
+## plot time series
+range(allTempPop$TempF) ## 59.9 67.0
+range(na.omit(allTempPop$average_percent_cover)) ## 0.0 98.8
+coeff <- 99/67
+coeff
+
+m3 <- ggplot(allTempPop, aes(x=Year, y=average_percent_cover), group = marine_site_name, col = marine_site_name) + 
+  geom_line(aes(group = marine_site_name, col =marine_site_name)) +
+  geom_line(aes(y=TempF*coeff), col = "lightblue") +
+  scale_y_continuous(
+    # Features of the first axis
+    name = "Average Percent Cover",
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coeff, name="Air Temperature (c)")) +
+  facet_wrap(~marine_site_name, scales= "free_y")
+# # scale_x_date(date_breaks = "1 month", date_labels = "%M")+
+
+
+
+m3
+
+
+file.name1 <- "Figures/02_Mytilus_pop_ait_temp_TSs.jpg"
+ggsave(m3, filename=file.name1, dpi=300, height=5, width=8)
+names(allTempPop)
+## median % cover - then can have probability of increase or decrease from that point
+
+meds <- allTempPop %>%
+  group_by(marine_site_name) %>%
+  summarise(MedPop = median(na.omit(average_percent_cover))) ## 59.2
+meds
+## logidtic regression for thresholds of temp
+
+
+## quantiles of temp
+tempquants <- as.data.frame(quantile(allTempPop$TempF))
+quants <- tempquants$`quantile(allTempPop$TempF)`[2:4]
+quants
+
+## median temp = 63F
+
+allTempPop %>% group_by(marine_site_name) %>% summarise(median(TempF))
+
+## define sites
+sitesx <- unique(allTempPop$marine_site_name)
+sitesx
+
+##. empty df for results
+res <- NULL
+
+## empty df for quantiles
+quantx <- NULL
+quantx
+## loop around sites, model glm predict median cover
+
+for(s in 1:length(sitesx)) {
+  
+  dat <- allTempPop %>% filter(marine_site_name == sitesx[s])
+  
+  ## end cover for 1,0 threshold
+  endCover <- meds %>% filter(marine_site_name == sitesx[s])
+  endCoverThresh <- endCover$MedPop
+  
+  ## condition convert to increase/decrease
+  dat <- dat %>%
+    mutate(Cond = ifelse(average_percent_cover < endCoverThresh, 0, 1))
+  
+  mod <- glm(Cond~TempF, family = "binomial", data = dat)
+  modsum <- summary(mod)
+  
+  newdata <- seq(range(dat$TempF)[1], range(dat$TempF)[2], 0.1)
+  
+  PredCover <- predict(mod, list(TempF = newdata), type = "response")
+  
+  resx <- as.data.frame(PredCover)
+  resx[,2] <- newdata
+  resx[,3] <- sitesx[s]
+  
+  colnames(resx) <- c("ProbIncrease", "TempF", "Site")
+  
+  res <- bind_rows(res, resx)
+  
+  ## probbilities per quantile of temp
+  
+  Predquants <- as.data.frame(predict(mod, list(TempF = quants), type = "response"))
+  Predquants[,2] <- quants
+  Predquants[,3] <- sitesx[s]
+  
+  colnames(Predquants) <- c("ProbQuant", "TempQuant", "Site")
+  
+  quantx <- bind_rows(Predquants, quantx)
+  
+}
+res
+write.csv(res, "output_data/02_airTemp_glms.csv")
+
+write.csv(quantx, "output_data/02_airTemp_glms_quants_probs.csv")
+quantx
+## plot
+
+p1 <- ggplot(res, aes(x=TempF, y = ProbIncrease)) +
+  stat_smooth(method = "loess") +
+  facet_wrap(~Site)
+
+p1
+
+file.name1 <- "Figures/02_Air_Temp_GLM.jpg"
+ggsave(p1, filename=file.name1, dpi=300, height=5, width=8)
+
+length(allTempPop$TempF)
+hist(allTempPop$TempF)

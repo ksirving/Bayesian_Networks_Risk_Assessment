@@ -23,9 +23,9 @@ names(dataR)
 head(dataR)
 dataR <- data %>%
   filter(lvl2 == "reproduction") %>%
-  mutate(effectCon = ifelse(effect == "Y", 1, 0), dose.particles.L = dose.particles.mL.master*1000) 
+  mutate(effectCon = ifelse(effect == "Y", 1, 0), dose.particles.L = dose.particles.mL.master*1000) %>%
+  mutate(effectCon = as.factor(effectCon))
 
-?as.factor
 str(dataR)
 reprMod <- glm(effectCon~dose.particles.L, family=binomial(link="logit"), data=dataR)
 summary(reprMod)
@@ -59,7 +59,7 @@ ggsave(r1, file = out.filename, dpi=300, height=4, width=6)
 names(dataM)
 head(dataM)
 dataM <- data %>%
-  filter(lvl2 == "mortality") %>%
+  filter(lvl2 == "mortality", lvl3 == "mortality" ) %>%
   mutate(effectCon = ifelse(effect == "Y", 1, 0), dose.particles.L = dose.particles.mL.master*1000)
 
 
@@ -72,9 +72,11 @@ predMort <- predict(MortMod, newdata=dataM, type="response")
 
 dataM <- cbind(dataM, predMort) 
 dataM
+range(na.omit(dataM$dose.particles.L))
 
 
-m1 <- ggplot(dataM, aes(x=dose.particles.L, y=predMort))+
+
+m1 <- ggplot(subset(dataM, dose.particles.L < 9.844636e+07), aes(x=dose.particles.L, y=predMort))+
   geom_line()+
   theme(strip.background = element_blank(),
         strip.text.y = element_blank()) +
@@ -85,7 +87,7 @@ m1 <- ggplot(dataM, aes(x=dose.particles.L, y=predMort))+
   theme(text = element_text(size=15),axis.text.x = element_text(angle = 60,  vjust = 0.5, hjust=0.5)) +
   labs(
     x = "Dose: Particles per L",
-    y = "Probability of Increased Mortality") #+ theme_bw(base_size = 15)
+    y = "Probability of Mortality Effect") #+ theme_bw(base_size = 15)
 m1
 
 out.filename <- paste0("Figures/04_mortality_dose_rep.jpg")
