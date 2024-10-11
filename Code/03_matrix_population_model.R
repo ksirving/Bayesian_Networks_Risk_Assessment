@@ -10,6 +10,7 @@ library(tidyverse)
 library(tidylog)
 
 
+# Definitions -------------------------------------------------------------
 
 ### fertility rate calculations
 a <- 6.2/36.9
@@ -54,34 +55,27 @@ exDFx <- read.csv("output_data/02_growth_extinction_Rates.csv") %>% select(-X) %
   mutate(StartCover1 = StartCover/100)
 exDFx
 
-
 AdultSurvivalTest = 1 # Probability of Adult survival
 JuvenileSurvivalTest = 1 # Probability of Juvenile survival 
 FertTest = 1 # Probability of reproduction 
 
 FertilityRate <- mean(a,b,c,d,e,f, g,h,i) ## fecundity estimate (Carson et al 2010) recriuted individuals per adult 
 
-JuvenileStatisO  <- JuvenileStatis*exDFx$GrowthRate*JuvenileSurvivalTest
+JuvenileStatisO  <- (JuvenileStatis*exDFx$GrowthRate)*JuvenileSurvivalTest ## statis weighted on site using GrowthRate
 A1FertilityO <- A1Fertility*FertTest ## Fert*
 A2FertilityO <- A2Fertility*FertTest
-JuvenileSurvivalO <- JuvenileSurvival*exDFx$GrowthRate*JuvenileSurvivalTest #exDFx$GrowthRate*
-A1StatisO <- A1Statis*exDFx$GrowthRate*AdultSurvivalTest
-A1SurvivalO <- A1Survival*exDFx$GrowthRate*AdultSurvivalTest
-A2StatisO <- A2Statis*exDFx$GrowthRate*AdultSurvivalTest
+JuvenileSurvivalO <- (JuvenileSurvival*exDFx$GrowthRate)*JuvenileSurvivalTest #exDFx$GrowthRate*
+A1StatisO <- (A1Statis*exDFx$GrowthRate)*AdultSurvivalTest
+A1SurvivalO <- (A1Survival*exDFx$GrowthRate)*AdultSurvivalTest
+A2StatisO <- (A2Statis*exDFx$GrowthRate)*AdultSurvivalTest
 
 ## sensitivity analysis defs
+## run over these to figure out how much prob of survival etc impacts pop size/extinction rate
 
 sensFertA1 <- lnorms(1000, A1FertilityO, 1)
 sensFertA2 <- lnorms(1000, A2FertilityO, 1)
 sensJuvSurv <- sapply(1:1000, function(x) betaval(mean(JuvenileSurvivalO), 0.01))
 sensA1Surv <- sapply(1:1000, function(x) betaval(mean(A1SurvivalO), 0.01))
-
-## survival and fertility rates
-# AdultSurvival1 <- exDFx$GrowthRate*NOECSurvival*0.32 ## Lambda of population multiplied by NOEC survival * predation &spawning from literature
-# AdultSurvival2 <- exDFx$GrowthRate*NOECSurvival*0.32 ## Lambda of population multiplied by NOEC survival
-# 
-# JuvenileSurvival <- 0.4 ## juvenile survival(note that settlement is M. edulis)
-# ##other option - recruitment rate (0.87) * growth rate of population. Change recruitment rate if needed
 
 StartPop <- exDFx$StartCover ## starting % cover from population
 StartPop ## change this to get uncertainty
@@ -95,8 +89,8 @@ sites <- exDFx$Site
 sites
 
 ## get df to add on new lambdas
-df <- data.frame(matrix(ncol = 1, nrow=14)) %>%
-  rename(ObsLambda = 1)
+df <- data.frame(matrix(ncol = 4, nrow=14)) %>%
+  rename(ObsLambda = 1, StableStageJuvenile = 2, StableStageAdult1 = 3, StableStageAdult2 = 4)
 
 dfSens <- data.frame(matrix(ncol = 1000, nrow=14)) %>%
   rename(SensLambda = 1)
@@ -107,19 +101,16 @@ dfSensSizes <- NULL
 
 ## define time steps: 50 years, year 1 is initial population
 t <- 51
-s=1
-a=1
+
 for(s in 1: length(sites)) {
   
-  ## caswell matrix
+  ## caswell matrix for specified site
   bivalve <-  matrix(c(JuvenileStatisO[s], A1FertilityO, A2FertilityO, ## fertility line
                        JuvenileSurvivalO[s], A1StatisO[s], 0, ## survival
                        0, A1SurvivalO[s], A2StatisO[s]), ## survival 
                      nrow = 3, 
                      byrow = TRUE) 
   
-  bivalve
-
   JuvPop <- (StartPop[s]/100)*17 ## proportion of juveniles (based on fertility rate Carson 2010)
   A1Pop <- (StartPop[s]-JuvPop)/2 ## remaining adult start pop divided between A1 and A2
   A2Pop <- (StartPop[s]-JuvPop)/2
@@ -127,6 +118,8 @@ for(s in 1: length(sites)) {
   n0 <- c(JuvPop, ## proportion of juveniles
           A1Pop, ## proportion of adult 1
           A2Pop) ## proportion of adult 2
+  
+  
   
   for(a in 1:1000) {
     
@@ -136,9 +129,7 @@ for(s in 1: length(sites)) {
                          0, sensA1Surv[a], A2StatisO[s]), ## survival 
                        nrow = 3, 
                        byrow = TRUE) 
-    
- 
-    
+
     # Project to the next time step:
     n1 <-  bivalveSens %*% n0 # matrix product
     
@@ -146,6 +137,7 @@ for(s in 1: length(sites)) {
     resultsSens <- pop.projection(bivalveSens,n0,iterations = t)
    
     dfSens$SensLambda[s] <- resultsSens$lambda
+    
     ## make data frame
     dfSensSizesx <- as.data.frame(resultsSens$pop.sizes) %>%
       mutate(Site = sites[s],
@@ -159,18 +151,22 @@ for(s in 1: length(sites)) {
              Iteration = a)
     
     dfSensSizes <- rbind(dfSensSizes, dfSensSizesx)
-   
-  }
+    dfSensSizes
+ 
+     }
   
-  ## Start from an initial population n at time t=0
+  ## Start from an initial specified site population n at time t=0
 
   # Project to the next time step:
   n1 <-  bivalve %*% n0 # matrix product
   
   # project the population over 50 years:
   results <- pop.projection(bivalve,n0,iterations = t)
-  
+ 
   df$ObsLambda[s] <- results$lambda
+  df$StableStageJuvenile[s] <- results$stable.stage[1]
+  df$StableStageAdult1[s] <- results$stable.stage[2]
+  df$StableStageAdult2[s] <- results$stable.stage[3]
   
   dfSizesx <- as.data.frame(results$pop.sizes) %>%
     mutate(Site = sites[s],
@@ -237,7 +233,8 @@ head(uncertSens)
 ## CC L = 0.14 - 21.53638 57.41814 0.0002542576 0.09737354 - 777
 ## SC l 0.99 - 23.12252 56.92628 0.02483294 0.1026765 - 746
 
-### filter to iteration needed
+### filter to iteration needed - closest to original lambda
+## need re done with new data  - automate code to find it
 
 TIt <- subPopsens %>%
   filter(Site == "Treasure Island" & Iteration == 708) 
@@ -301,11 +298,13 @@ write.csv(vrs, "output_data/03_best_rates_lambdas_for_sites.csv")
 vrs
 
 Site <- vrs$Site
-vrs
+
 ## empty df
 dfx <- data.frame(matrix(ncol = 2)) %>%
   rename(Elasticity = 1, Site = 2)
 dfx
+
+s=1
 
 for(s in 1:length(Site)) {
 
@@ -366,7 +365,6 @@ A1Survival <- 0.1266
 A2Statis <- 0.4070
 
 ## MP changes
-
 AdultSurvivalTest =  sample(seq(0.001,1,0.001)) # Probability of Adult survival
 JuvenileSurvivalTest = sample(seq(0.001,1,0.001)) # Probability of Juvenile survival 
 FertTest = sample(seq(0.001,1,0.001)) # Probability of reproduction 
@@ -382,6 +380,9 @@ Sites
 ## get df to add on new lambdas
 df <- data.frame(matrix()) %>%
   rename(MPLambda = 1)
+
+## time steps
+t=51
 
 ## df for population sizes
 dfSizes <- NULL
@@ -403,7 +404,7 @@ for(s in 1:length(Sites)) {
           A2Pop) ## proportion of adult 2
 
   for(m in 1:1000) {
-    
+    JuvenileStatis*data1$Lambda*JuvenileSurvivalTest[m]
     ## input values
     JuvenileStatisO  <- JuvenileStatis*data1$Lambda*JuvenileSurvivalTest[m]
     A1FertilityO <- data1$FertilityA1*FertTest[m]
@@ -424,7 +425,7 @@ for(s in 1:length(Sites)) {
     
     # Project to the next time step:
     n1 <-  bivalve %*% n0 # matrix product
-    n1
+    
     # project the population over 50 years:
     results <- pop.projection(bivalve,n0,iterations = t)
     results$lambda
@@ -669,8 +670,8 @@ head(dfSizes)
 
 write.csv(dfSizes, "output_data/03_mpconcs_pop_model_outcome.csv")
 
-# dfsizes <- read.csv("output_data/03_mpconcs_pop_model_outcome.csv")
-
+dfSizes <- read.csv("output_data/03_mpconcs_pop_model_outcome.csv")
+head(dfSizes)
 ## format data and make relative pops
 dfSizes <- dfSizes %>%
   rename(PopSizes = 1) %>%
@@ -680,7 +681,8 @@ dfSizes <- dfSizes %>%
   mutate(RelativePopSize = PopSizes/sum(PopSizes))
 
 ends <- unique(dfSizes$Endpoint)
-
+ends
+e=1
 ## plot
 for(e in 1:length(ends)) {
   
@@ -691,7 +693,7 @@ for(e in 1:length(ends)) {
     geom_smooth(aes(group = Site, col = Site)) +
     facet_grid(vars(MPImpact), vars(MPConc)) +
   scale_y_continuous(name = "Projected Percent Cover")
-  
+  P1
   
   file.name1 <- paste0("Figures/02_Mytilus_simulated_pop_", ends[e] ,".jpg")
   ggsave(P1, filename=file.name1, dpi=300, height=5, width=8)
@@ -709,6 +711,77 @@ growths <- dfSizes %>%
 write.csv(growths, "output_data/03_mpconcs_pop_model_outcome_lambdas.csv")
 
 growths
+
+
+# Plot MP Conc over time --------------------------------------------------
+
+## format data and make relative pops
+dfSizes <- dfSizes %>%
+  rename(PopSizes = 1) %>%
+  filter(Site %in% NPsites) %>%
+  mutate(Year = as.factor(Year)) %>%
+  group_by(Year, MPImpact, MPConc, Endpoint) %>%
+  mutate(RelativePopSize = PopSizes/sum(PopSizes))
+
+dfSizes
+
+ends <- unique(dfSizes$Endpoint)
+ends
+e=1
+## plot
+for(e in 1:length(ends)) {
+  
+  enddf <- dfSizes %>%
+    filter(Endpoint == ends[e], MPImpact =="Mean", Site == "Treasure Island") %>%
+    group_by(MPConc, Site) %>%
+    mutate(Year1 = seq(2020, 2070, 1))
+  
+  enddf
+  
+  P1 <- ggplot(enddf, aes(y=PopSizes, x= Year1), group = MPConc, col = MPConc) +
+    geom_smooth(aes(group = MPConc, col = MPConc)) +
+    facet_wrap(~Site) +
+    scale_y_continuous(name = "Population Size") +
+    theme_classic() +
+    theme(axis.text.x = element_text(size=10, angle=45, vjust = 0.7)) +
+    scale_x_continuous(name ="Year", limits=c(2020, 2050)) +
+    scale_color_discrete(name = "MP Concentration (p/l)", labels = c("500", "150", "30")) #
+  
+  P1
+  
+  file.name1 <- paste0("Figures/03_Mytilus_simulated_pop_Mp_Conc_Site_TI_", ends[e] ,".jpg")
+  ggsave(P1, filename=file.name1, dpi=300, height=5, width=8)
+  
+}
+
+### conceptual figure for slides
+
+ends
+e=3 ## reproduction
+
+enddf <- dfSizes %>%
+  filter(Endpoint == ends[e], MPImpact =="Mean", Site == "Treasure Island") %>%
+  group_by(MPConc, Site) %>%
+  mutate(Year1 = seq(2020, 2070, 1))
+
+enddf
+
+P1 <- ggplot(enddf, aes(y=PopSizes, x= Year1), group = MPConc, col = MPConc) +
+  geom_smooth(aes(group = MPConc, col = MPConc)) +
+  facet_wrap(~Site) +
+  scale_y_continuous(name = "Population Size") +
+  theme_classic() +
+  theme(axis.text.x = element_text(size=10, angle=45, vjust = 0.7)) +
+  scale_x_continuous(name ="Year", limits=c(2020, 2050)) +
+  scale_color_discrete(name = "Stressor", labels = c("MP and Water Temp", "MP", "Water Temp")) #
+
+P1
+
+file.name1 <- paste0("Figures/03_Mytilus_simulated_multiStressor_Conceptual.jpg")
+ggsave(P1, filename=file.name1, dpi=300, height=5, width=8)
+
+
+
 # Differences in Lambdas --------------------------------------------------
 ## observed lambdas
 
@@ -721,6 +794,7 @@ vrs <- read.csv("output_data/03_best_rates_lambdas_for_sites.csv") %>%
 vrs
 #simulated lambdas
 growths <- read.csv("output_data/03_mpconcs_pop_model_outcome_lambdas.csv")
+growths
 
 allLambdas <- inner_join(growths, vrs, by = "Site") %>%
   mutate(differenceRepr = ((GrowthRate-Reproduction)/GrowthRate)) %>% ## change in reproduction for each site  

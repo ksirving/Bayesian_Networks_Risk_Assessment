@@ -1,5 +1,5 @@
 ## exploring data and pop model
-
+install.packages("maptools")
 ## packages
 library(tidyverse)
 library(lubridate)
@@ -9,7 +9,7 @@ library(mapview)
 library(sf)
 
 library(ggmap)
-library(maptools)
+# library(maptools)
 library(rgdal)
 
 
@@ -55,25 +55,25 @@ sites <- mytilus %>%
   st_as_sf(coords=c( "site_long", "site_lat"), crs=4326, remove=F)
 
 # set background basemaps:
-basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
-                  "Esri.NatGeoWorldMap",
-                  "OpenTopoMap", "OpenStreetMap", 
-                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+# basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+#                   "Esri.NatGeoWorldMap",
+#                   "OpenTopoMap", "OpenStreetMap", 
+#                   "CartoDB.Positron", "Stamen.TopOSMFeatures")
+# 
+# mapviewOptions(basemaps=basemapsList, fgb = FALSE)
 
-mapviewOptions(basemaps=basemapsList, fgb = FALSE)
-
-## plot points
-m1 <- mapview(sites, cex=6, col.regions="orange",
-              layer.name="Mytilus Sites")# +
-# mapview(bio_sub, cex=6, col.regions="blue",
-#         layer.name="Toad Observations Other")  
-
-
-m1
-m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
-
-mapshot(m1, url = paste0(getwd(), "/Figures/Maps/Mytilus_Californicus_socal_sites.html"),
-        file = paste0(getwd(), "/Figures/Maps/Mytilus_Californicus_socal_sites.png"))
+# ## plot points
+# m1 <- mapview(sites, cex=6, col.regions="orange",
+#               layer.name="Mytilus Sites")# +
+# # mapview(bio_sub, cex=6, col.regions="blue",
+# #         layer.name="Toad Observations Other")  
+# 
+# 
+# m1
+# m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+# 
+# mapshot(m1, url = paste0(getwd(), "/Figures/Maps/Mytilus_Californicus_socal_sites.html"),
+#         file = paste0(getwd(), "/Figures/Maps/Mytilus_Californicus_socal_sites.png"))
 
 
 ## define sites near newport
@@ -139,167 +139,9 @@ m3 <- ggplot(NPMytilus1, aes(x=Date, y=MeanPercentCover), group = marine_site_na
 m3
 
 
-# Basic population model --------------------------------------------------
-## https://rstudio-pubs-static.s3.amazonaws.com/252603_9c6a71110dc74cc7832f154449235f7f.html
-
-# install.packages("primer")
-# install.packages("RColorBrewer")
-library(primer)
-library(RColorBrewer)
-
-N0 = 100 ## start population size
-lambda = 1.5 ## growth rate
-t = 0:10 ## 0 -10 years
-
-N = N0 * lambda^t ## equation
-round(N, 0)
-
-plot(t, N, type = "o", pch = 19, las = 1)
-
-### bvarying the lambda
-
-N0 = 100
-lambda = seq(0.6, 1.4, 0.2)
-t = 0:10
-N = sapply(lambda, function(lambda) N0 * lambda^t)
-
-matplot(t, N, las = 1)
-
-## including stochasticisty
-
-set.seed(2)
-rs = rnorm(1000, mean = 0, sd = 0.1)
-hist(rs, xlab = "r")
-
-# For consistency of modeling purposes, we want to convert this distribution of growth rates to the 
-# discrete population growth rate, λ which can also be expressed as er. So, the distribution of λ
-# in this case is:
-  
-hist(exp(rs), xlab = "lambda", main = "Histogram of lambdas")
-
-
-N0 = 100  #initial population size
-times = 20  #number of years into the future
-N = vector(length = times)  #empty vector to store pop. sizes
-N[1] = N0  #initial population size should be the first N
-lambda = 1.2  #growth rate
-
-# start loop: Take previous year's N and multiply by lambda
-for (t in 2:times) {
-  N[t] = N[t - 1] * lambda
-}
-
-plot(1:times, N, type = "o", las = 1)
-
-set.seed(2)
-N0 = 100  #initial population size
-times = 20  #number of years into the future
-N = vector(length = times)  #empty vector to store pop. sizes
-N
-N[1] = N0  #initial population size should be the first N
-
-# lambdas--we only need 19 numbers because growth only
-# happens between 2 years.
-lambda = rlnorm(times - 1, meanlog = 0, sdlog = 0.1)
-lambda
-# start loop: Take previous year's N and multiply by lambda
-for (t in 2:times) {
-  N[t] = N[t - 1] * lambda[t - 1]
-}
-plot(1:times, N, type = "o", las = 1)
-
-## PVA - simple example
-### calculating lambda from counts
-data(sparrows)
-head(sparrows)
-
-counts = sparrows$Count
-l = counts[-1]/counts[-length(counts)] ## calculate lambda
-round(l, 2)
-
-## distirbuion of growth rates
-hist(l, breaks = 20, main = "Histogram of lambdas")
-
-## mean and sd
-mean(log(l))
-sd(log(l))
-
-## projecting over 20 years
-# Let’s just assume that we can estimate the distribution of annual population growth rates λ
-# as a log-normal distribution with those mean-logs and sd-logs. With this, we can generate 50 projected λ
-# values:
-set.seed(2)
-sim.l = rlnorm(50, meanlog = mean(log(l)), sdlog = sd(log(l)))
-round(sim.l, 2)
-
-# Let’ use this to simulate this mytilus population over the next 20 years (or rather, from 2023 to 2043).
-set.seed(2)
-time = 21
-N0 = cover[length(counts)]
-N0
-N = vector(length = time)
-N[1] = N0
-
-sim.l = rlnorm(time, meanlog = mean(log(l)), sdlog = sd(log(l)))
-for (t in 2:time) {
-  N[t] = N[t - 1] * sim.l[t - 1]
-}
-## plot
-par(mar = c(4, 4, 1, 4))
-plot(1:(time), N, type = "o", las = 1, xaxt = "n")
-axis(side = 1, at = c(1, 6, 11, 16, 20), labels = c(2003, 2008, 
-                                                    2013, 2018, 2023))
-
-
-##mulitple simulations
-set.seed(450)
-sims = 5
-outmat = sapply(1:sims, function(x) {
-  time = 21
-  N0 = 43
-  N = vector(length = time)
-  N[1] = N0
-  sim.l = rlnorm(time, meanlog = mean(log(l)), sdlog = sd(log(l)))
-  for (t in 2:time) {
-    N[t] = N[t - 1] * sim.l[t - 1]
-  }
-  N
-})
-par(mar = c(4, 4, 1, 4))
-matplot(1:time, outmat, type = "l", las = 1, lty = 5, ylab = "N", xaxt = "n", xlab = "Year")
-axis(side = 1, at = c(1, 6, 11, 16, 20), labels = c(2003, 2008, 
-                                                    2013, 2018, 2023))
-
-## extinction risk
-# let’s start by doing the simulations in the same way as above, but changing sims=1000 and time=101.
-
-sims = 1000
-outmat = sapply(1:sims, function(x) {
-  time = 101
-  N0 = 43
-  N = vector(length = time)
-  N[1] = N0
-  sim.l = rlnorm(time, meanlog = mean(log(l)), sdlog = sd(log(l)))
-  for (t in 2:time) {
-    N[t] = N[t - 1] * sim.l[t - 1]
-  }
-  N
-})
-outmat
-dim(outmat)
-
-# which columns have at least one value less than 2? - 2 needed to reproduce
-minpop = apply(outmat, 2, function(x) min(x) < 2)
-sum(minpop + 0)/sims  #proportion of columns with TRUE
-
-## Thus, there is approximately a 28% chance that the population will go 
-# extinct within 100 years due purely to stochasticity.
-
-
 # Population calculations on bivalves -------------------------------------
+
 ## function to normalise betwen 0-100
-
-
 min_max_norm <- function(x) {
   (x - min(x)) / (max(x) - min(x))
 }
@@ -325,6 +167,7 @@ for(s in 1:length(sites)) {
   mytilusx <- mytilus %>%
     filter(marine_site_name == sites[s], season_name == "Fall")
   names(mytilusx)
+  
   ## plot
   mx1 <- ggplot(mytilusx, aes(x=marine_common_year, y=average_percent_cover)) + 
     geom_line() 
@@ -335,9 +178,10 @@ for(s in 1:length(sites)) {
   
   ## define per cent cover
   cover = mytilusx$average_percent_cover
+  cover
   
   l = cover[-1]/cover[-length(cover)]
- 
+ lx
   
   # round(l, 2)
   
@@ -348,38 +192,38 @@ for(s in 1:length(sites)) {
   ## distirbuion of growth rates
   hist(lx, breaks = 100, main = "Histogram of lambdas")
   
-  ## mean and sd
-  
-  # mean(log(lx)) ## -2.256036
-  # sd(log(lx)) ## 4.932772
-  
-  ## projecting over 20 years
+  ## projecting over 50 years
   sim.l = rlnorm(50, meanlog = mean(log(lx)), sdlog = sd(log(lx)))
   # round(sim.l, 2)
+  
   time = 51 ## time line, 
   N0 = cover[length(cover)] ## cover of first year
-  N = vector(length = time)
-  N[1] = N0
-  sim.l = rlnorm(time, meanlog = mean(log(lx)), sdlog = sd(log(lx)))
-  mean(sim.l)
+  N = vector(length = time) ## empty list
+  N[1] = N0 ## add first year cover
   
+  ## simulate lambda (50 years)
+  sim.l = rlnorm(time, meanlog = mean(log(lx)), sdlog = sd(log(lx)))
+  
+  
+  ## simulate population over 50 years
   for (t in 2:time) {
     N[t] = N[t - 1] * sim.l[t - 1]
   }
   
-  N <- min_max_norm(N)*100 ## not=rmalise to 100
+  N <- min_max_norm(N)*100 ## normalise to 100
   df <- as.data.frame(N) %>% mutate(Year = seq(2022, 2072, 1)) ## make df
   
   ## plot
   mx <- ggplot(df, aes(x=Year, y=N)) + 
     geom_line() 
+  mx
 
   ## save
   file.name1 <- paste0("Figures/02_Mytilus_", sites[s], "_predcited_population_growth.jpg")
   ggsave(mx, filename=file.name1, dpi=300, height=5, width=8)
   
   
-  ### simulations
+  ### iterate simulations
   
   sims = 5
   outmat = sapply(1:sims, function(x) {
@@ -395,19 +239,20 @@ for(s in 1:length(sites)) {
     
   })
   
+  ## format sim data
   dfsim5 <- as.data.frame(outmat) %>% mutate(Year = seq(2022, 2072, 1)) %>%## make df
     pivot_longer(V1:V5, names_to = "Simulation", values_to = "PercentCover")
-  dfsim5
-  ## plot
+  
+  ## plot sim data
   mx2 <- ggplot(dfsim5, aes(x=Year, y=PercentCover), group = Simulation, colour = Simulation) + 
     geom_line(aes(group = Simulation, colour = Simulation)) 
-  mx2
+  
   ## save
   file.name1 <- paste0("Figures/02_Mytilus_", sites[s], "_predcited_population_growth_sim5.jpg")
   ggsave(mx2, filename=file.name1, dpi=300, height=5, width=8)
   
   
-  ### extinction risk
+  ### calculate extinction risk
   sims = 1000 ## lots of simulations
   outmat = sapply(1:sims, function(x) {
     time = 51
@@ -421,18 +266,18 @@ for(s in 1:length(sites)) {
     min_max_norm(N)*100
     
   })
-  
+
   ## need better measure of pop viability
   ## pop viability = < 5% for 3 years as an example
-  
+  ConsecYears5
   ConsecYears5 <- as.data.frame(outmat) %>% mutate(Year = seq(2022, 2072,1)) %>%
     pivot_longer(V1:V1000, names_to = "Simulation", values_to = "PercentCover") %>%
     group_by(Simulation) %>%
     mutate(Consec5 = sequence(rle(as.character(PercentCover < 5))$lengths)) %>% ## sequence per < 0.5% occurences
-    filter(PercentCover < 0)  %>%
+    # filter(PercentCover < 0)  #%>%
     summarise(MaxConsec = max(Consec5)) ## count max 5% occurence in each sim
 
-  minpop = ConsecYears5$MaxConsec >= 3
+  minpop = ConsecYears5$MaxConsec >= 3 ## <5% occurrences for 3 years or more
   Ex <- sum(minpop + 0)/sims  #proportion of columns with TRUE
 
   ## make df
@@ -445,7 +290,7 @@ for(s in 1:length(sites)) {
 
 ## get juv survival by multiplying by survival rate
 exDFx <- exDFx %>%
-  mutate(JuvenialSurvival = GrowthRate*0.35) 
+  mutate(JuvenialSurvival = GrowthRate*0.35) ## don' think this is needed
   
 exDFx
 
@@ -463,6 +308,7 @@ MostRecent <- Biodiv %>%
   mutate(MatchYear = ifelse(year == MostRecentYear, "Yes", "No")) %>%
   filter(MatchYear == "Yes")
 MostRecent
+
 ### add to growth rates etc df
 
 allDF <- inner_join(exDFx, MostRecent, by = c("Site" = "marine_site_name")) %>%
@@ -472,6 +318,7 @@ allDF <- inner_join(exDFx, MostRecent, by = c("Site" = "marine_site_name")) %>%
 allDF
 
 write.csv(allDF, "output_data/02_growth_extinction_Rates.csv")
+
 
 # SST ---------------------------------------------------------------------
 
@@ -570,6 +417,12 @@ allTemp_widecor <- cor(allTemp_wide)
 allTempPop <- full_join(NPMytilus, allTemp, by = c("Year" = "Date", "marine_site_name" = "Site")) %>%
   rename(TempF = 35)
 names(allTempPop)
+
+mean(na.omit(allTempPop$average_percent_cover)) ## 56.0125
+median(na.omit(allTempPop$average_percent_cover)) ## 59.2
+
+mean(na.omit(allTempPop$TempF)) ## 63.1
+median(na.omit(allTempPop$TempF)) ## 63.1
 
 ## plot
 ggplot(allTempPop, aes(x = TempF, y = average_percent_cover), group = marine_site_name, col = marine_site_name) + 
@@ -689,3 +542,13 @@ ggsave(p1, filename=file.name1, dpi=300, height=5, width=8)
 
 length(allTempPop$TempF)
 hist(allTempPop$TempF)
+
+
+# Temp model raw ----------------------------------------------------------
+
+## need difference in percent cover between low, med, high temps to figure out a lambda
+
+
+## let's say that percent cover drops 10% per 
+
+mean()

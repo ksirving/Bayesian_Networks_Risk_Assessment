@@ -1,0 +1,5 @@
+"","Node","Level","TestNode","Probability","HighTemp","MediumTemp","LowTemp"
+"1","PopulationDecline","Reduced","SST",1,0.2128,0.2256,0.2291
+"2","Growth","Effect","SST",1,0.1989,0.1984,0.2037
+"3","Mortality","Effect","SST",1,0.0965,0.0623,0.1074
+"4","ReproductiveRate","Effect","SST",1,0.2426,0.2268,0.2095

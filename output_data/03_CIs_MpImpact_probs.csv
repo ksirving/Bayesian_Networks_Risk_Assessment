@@ -1,10 +1,10 @@
 "","Node","Level","Probability","Prob.CILow","Prob.CIHigh"
-"1","PopulationDecline","Increased",0.2402,0.2469,0.239
-"2","PopulationDecline","None",0.5241,0.531,0.5162
-"3","PopulationDecline","Reduced",0.2256,0.227,0.2383
-"4","Growth","Effect",0.2076,0.2052,0.1994
-"5","Growth","No Effect",0.8047,0.7978,0.8039
-"6","Mortality","Effect",0.0861,0.0834,0.0839
-"7","Mortality","No Effect",0.9144,0.9184,0.9191
-"8","ReproductiveRate","Effect",0.1961,0.2027,0.1952
-"9","ReproductiveRate","No Effect",0.8065,0.7993,0.8007
+"1","PopulationDecline","Increased",0.2331,0.2336,0.2389
+"2","PopulationDecline","None",0.5452,0.5514,0.5364
+"3","PopulationDecline","Reduced",0.2249,0.2165,0.2339
+"4","Growth","Effect",0.1985,0.2056,0.2078
+"5","Growth","No Effect",0.7977,0.7989,0.7958
+"6","Mortality","Effect",0.0905,0.0934,0.0895
+"7","Mortality","No Effect",0.9094,0.9016,0.9085
+"8","ReproductiveRate","Effect",0.2044,0.2145,0.1981
+"9","ReproductiveRate","No Effect",0.7921,0.7952,0.7854

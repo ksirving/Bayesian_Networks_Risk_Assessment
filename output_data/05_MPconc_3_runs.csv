@@ -1,0 +1,5 @@
+"","Node","Level","TestNode","Probability","LowConc","MedConc","HighConc"
+"1","PopulationDecline","Reduced","MPConc",1,0.2296,0.2222,0.2083
+"2","Growth","Effect","MPConc",1,0.1513,0.2356,0.2841
+"3","Mortality","Effect","MPConc",1,0.0382,0.0983,0.1571
+"4","ReproductiveRate","Effect","MPConc",1,0.1658,0.1963,0.2581

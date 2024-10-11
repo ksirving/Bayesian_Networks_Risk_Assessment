@@ -6,11 +6,17 @@ library(lubridate)
 # install.packages("bnlearn")
 # install.packages("networkD3")
 # install.packages("gRain")
+# if (!require("BiocManager", quietly = TRUE))
+#   install.packages("BiocManager")
+# BiocManager::install("Rgraphviz")
 library(gRain)
 library(bnlearn)
 library(networkD3)
 
 library(Rgraphviz)
+
+
+
 
 outdir <- "Figures/"
 
@@ -23,7 +29,7 @@ outdir <- "Figures/"
 # col_sums <- apply(MP.prob, c(1, 2), sum)
 # col_sums
 
-library(bnlearn)
+
 # data(alarm)
 # bn.cv(alarm, bn = "hc", algorithm.args = list(score = "bde", iss = 1))
 # ?variable.importance
@@ -48,6 +54,7 @@ class(dummyBN)
 
 plot(dummyBN)
 
+# test <- bn(dummBN)
 
 # Plot the DAG ------------------------------------------------------------
 dev.off()
@@ -108,8 +115,8 @@ difs <- read.csv("output_data/03_lambda_diffs_mort_reproduction_growth_developme
 # loc.lv <- c("Site1", "Site2")
 seas.lv <- c("Spring", "Fall")
 MP.lv <- c("Up to 69", "70-358", "Over 358") ## change to percentiles of ambient MP conc
-AT.lv <- c("Effect", "No Effect") ## <62, 62-64, >64
-sst.lv <- c("Effect", "No Effect")
+AT.lv <- c("Effect", "No Effect") ## <62, 62-64, >64 - UPDATE THESE BACK TO LOW/MED/HIGH
+sst.lv <- c("Low", "Medium", "High")
 gro.lv <-c("Effect", "No Effect")
 mor.lv <- c("Effect", "No Effect")
 repr.lv <- c("Effect", "No Effect")
@@ -127,9 +134,9 @@ MP.prob <- array(c(0.5,0.25, 0.25), dim = 3, dimnames = list(MPConc = MP.lv))
 ## one parent
 ## if spring/fall at each site - SST
 
-sst.prob <- array(c( 0.25, 0.75,## Spring: effect, no effect
-                   0.75, 0.25), ## Fall: effect, no effect
-                   dim = c(2,2), dimnames = list(SeaSurfaceTemp = sst.lv, Season = seas.lv))
+sst.prob <- array(c(0.8, 0.2, 0,## Spring: Low, medium, High
+                   0, 0.2, 0.8), ## Fall:Low, medium, High
+                   dim = c(3,2), dimnames = list(SeaSurfaceTemp = sst.lv, Season = seas.lv))
 
 sst.prob
 
@@ -195,6 +202,7 @@ groearEffTemp <- groearEffssteff*groearEffATeff
 ## reproduction
 repprobsA <- mpprobs %>%
   filter(Endpoint == "Reproduction", Life.Stage == "Adult")
+
 repAdEff <- repprobsA$Probability.of.Effect
 repAdNoEff <- repprobsA$Probability.of.No.Effect
 
@@ -335,7 +343,7 @@ repr.prob <- array(c( ## effect of growth, effect sst, effect AT
                   repAdEff[3], repAdNoEff[3]), ##  (effect, no effect) - Adult
                                     
                       
-                   dim = c(2,3, 3, 2, 2, 2), dimnames = list(ReproductiveRate = repr.lv, LifeStage = ls.lv, MPConc = MP.lv, Growth = gro.lv, SeaSurfaceTemp = sst.lv, 
+                   dim = c(2,3, 3, 2, 3, 2), dimnames = list(ReproductiveRate = repr.lv, LifeStage = ls.lv, MPConc = MP.lv, Growth = gro.lv, SeaSurfaceTemp = sst.lv, 
                                                  AirTemperature = AT.lv))
 repr.prob
 
@@ -381,7 +389,7 @@ groearEffATeff <- groEarlyEff*0.7*MorearEff
 groJuvEffTemp <- groJuvEffATeff*groJuvEffssteff*MorJuvEff
 groearEffTemp <- groearEffssteff*groearEffATeff*MorearEff
 
-## effect of temp on MORTSLITY
+## effect of temp on MORTALITY
 
 ## effect adult
 MorssteffA <- MorAdEff*0.7 ## sst
@@ -525,7 +533,7 @@ mor.prob <- array(c( ## effect of growth, effect sst, effect AT
   MorAdEff[3], MorAdNoEff[3]), ##  (effect, no effect) - Adult
   
   
-  dim = c(2,3, 3, 2, 2, 2), dimnames = list(Mortality = mor.lv, LifeStage = ls.lv, MPConc = MP.lv, Growth = gro.lv, SeaSurfaceTemp = sst.lv, 
+  dim = c(2,3, 3, 2, 3, 2), dimnames = list(Mortality = mor.lv, LifeStage = ls.lv, MPConc = MP.lv, Growth = gro.lv, SeaSurfaceTemp = sst.lv, 
                                             AirTemperature = AT.lv))
 mor.prob
 
@@ -550,6 +558,7 @@ popDataTI <- popData %>%
   filter(Site == "Treasure Island" , MPImpact == "Mean")
 
 ## effects
+
 bothEffTI <- popDataTI$differenceMortRepr ## both
 MortEffTI <- popDataTI$differenceMort ## mortality
 ReprEffTI <- popDataTI$differenceRepr ## reproduction
@@ -1239,7 +1248,9 @@ allsens <- bind_rows(mp,ls,seas) %>%
 allsens
 
 nodes <- unique(allsens$TestNode)
-
+nodes
+i=1
+i
 for(i in 1:length(nodes)) {
   
   allsensx <- allsens %>%
@@ -1267,7 +1278,7 @@ for(i in 1:length(nodes)) {
   s1
   
   file.name1 <- paste0("Figures/03_Mytilus_simulated_pop_", nodes[i] ,".jpg")
-  ggsave(P1, filename=file.name1, dpi=300, height=5, width=8)
+  ggsave(s1, filename=file.name1, dpi=300, height=5, width=8)
   
 }
 
@@ -1741,8 +1752,6 @@ mpat <- read.csv("output_data/03_MPConc_AT_sensitivity_analysis.csv")
 mpsst <- read.csv("output_data/03_MPConc_SST_sensitivity_analysis.csv")
 mpsstat <- read.csv("output_data/03_MPConc_SST_AT_sensitivity_analysis.csv")
 
-allsens
-
 ## join together data
 
 allsens <- bind_rows(mp,ls,seas,at,sst,sstat,mpat,mpsst,mpsstat) %>%
@@ -1750,7 +1759,7 @@ allsens <- bind_rows(mp,ls,seas,at,sst,sstat,mpat,mpsst,mpsstat) %>%
 allsens
 
 nodes <- unique(allsens$TestNode)
-nodes
+
 
 ## make look up table for names
 nodesDF <- NULL
@@ -1760,7 +1769,8 @@ nodesDF$NodeName <- c("Microplastic Concentration", "Life Stage", "Season", "Air
                       "Air & Sea Temperature", "Microplastic Concentration & Air Temperature", "Microplastic Concentration & Sea Temperature",
                       "Microplastic Concentration, Sea & Air Temperature")
 
-nodesDF <- as.data.frame(nodesDF)
+nodesDF <- as.data.frame(nodesDF) %>%
+  filter(!Node %in% c("LifeStage", "Season", "BothTemps"))
 nodesDF
 
 for(i in 1:length(nodes)) {
@@ -1791,8 +1801,11 @@ for(i in 1:length(nodes)) {
 ## plot per output proabability
 
 allsens <- bind_rows(mp,ls,seas,at,sst,sstat,mpat,mpsst,mpsstat) %>%
-  filter(Level %in% c("Reduced", "Effect"))
-allsens
+  filter(Level %in% c("Reduced", "Effect")) %>%
+  filter(!TestNode %in% c("LifeStage", "Season", "BothTemps"))
+nodesDF
+head(allsens)
+unique(allsens$TestNode)
 
 outnode <- unique(allsens$Node)
 outnode[1]
@@ -1825,6 +1838,295 @@ for(i in 1:length(outnode)) {
   
 }
 
+  
+
+# Example runs for presentation -------------------------------------------
+
+## need different levels of MP conc
+
+# e.g., MP concentration = 30 p/l, 150 p/l, 500p/l
+# MP.lv <- c("Up to 69", "70-358", "Over 358")
+
+cptx<- cpt
+
+## create DF
+df <- as.data.frame(matrix(nrow=9, ncol = 7))
+colnames(df) <- c("Node", "Level", "ProbabilityOutput", "TestNode", "LowConc", "MedConc", "HighConc")
+
+df[,1] <- c("PopulationDecline", "PopulationDecline", "PopulationDecline",
+            "Growth", "Growth",
+            "Mortality", "Mortality", 
+            "ReproductiveRate", "ReproductiveRate")
+
+df[,2] <-c("Increased", "None", "Reduced",
+           "Effect", "No Effect",
+           "Effect", "No Effect",
+           "Effect", "No Effect") 
+
+df
+dfx <- NULL
+## define prob combinations
+probs <- c("prob1", "prob2", "prob3")
+
+p=2
+
+## loop around combinations
+for (p in 1:length(probs)) {
+  
+  probsx <- probs[p]
+  
+  if (probsx == "prob1") {
+    
+    cptx$MPConc[1] <- 1 ## "Up to 69"
+    cptx$MPConc[2] <- 0 ## "70-358"
+    cptx$MPConc[3] <- 0 ## "Over 358"
+    
+  } else if (probsx == "prob2") {
+    
+    cptx$MPConc[1] <- 0 ## "Up to 69"
+    cptx$MPConc[2] <- 1 ## "70-358"
+    cptx$MPConc[3] <- 0 ## "Over 358"
+    
+  } else {
+    
+    cptx$MPConc[1] <- 0 ## "Up to 69"
+    cptx$MPConc[2] <- 0 ## "70-358"
+    cptx$MPConc[3] <- 1 ## "Over 358"
+    
+  }
+
+  # fit cpt table to network
+  bnx <- custom.fit(dummyBN, dist=cptx, debug = T)
+  
+  ## extract info
+  ## population
+  increasedPop <- cpquery(bnx, event = PopulationDecline == "Increased", evidence = TRUE)
+  nonePop <- cpquery(bnx, event = PopulationDecline == "none", evidence = TRUE)
+  decreasedPop <- cpquery(bnx, event = PopulationDecline == "Reduced", evidence = TRUE)
+  
+  ## growth
+  GrowthEffect <- cpquery(bnx, event = Growth == "Effect", evidence = TRUE)
+  GrowthNoEffect <- cpquery(bnx, event = Growth == "No Effect", evidence = TRUE)
+  
+  ## Mortality
+  MortEffect <- cpquery(bnx, event = Mortality == "Effect", evidence = TRUE)
+  MortNoEffect <- cpquery(bnx, event = Mortality == "No Effect", evidence = TRUE)
+  
+  # Reproduction
+  ReproEffect <- cpquery(bnx, event = ReproductiveRate == "Effect", evidence = TRUE)
+  ReproNoEffect <- cpquery(bnx, event = ReproductiveRate == "No Effect", evidence = TRUE)
+  
+  ## add to DF
+  
+  df[,3] <- c(increasedPop,nonePop,decreasedPop,GrowthEffect,GrowthNoEffect,MortEffect,MortNoEffect,ReproEffect,ReproNoEffect)
+  df[,4] <- "MPConc"
+  df[,5] <- cptx$MPConc[1]
+  df[,6] <- cptx$MPConc[2]
+  df[,7] <- cptx$MPConc[3]
+  
+  
+  dfx <- bind_rows(dfx,df)
+  
+}
 
 
+## take just effects
+dfx1 <- dfx %>%
+  filter(Level %in% c("Reduced", "Effect")) %>%
+  pivot_longer(LowConc:HighConc, names_to = "MPConc", values_to = "Probability") %>%
+  filter(!Probability ==0) %>%
+  pivot_wider(names_from = MPConc, values_from = ProbabilityOutput)
+
+dfx1
+
+write.csv(dfx1, "output_data/05_MPconc_3_runs.csv")
+
+dfP <- dfx1 %>%
+  select(-Probability) %>%
+  pivot_longer(LowConc:HighConc, names_to = "Concentration", values_to = "Probability") %>%
+  mutate(Concetration = as.factor(Concentration)) %>%
+  mutate(Concentration = recode_factor(Concentration, LowConc = "Low", MedConc = "Medium", HighConc = "High"))
+dfP
+
+## plot
+
+ggplot(dfP, aes(x=Concentration, y=Probability, group = Node, col = Node)) +
+  geom_line()
+
+
+### Sea Surface Temperature
+
+## < 50f, 60f, >70
+
+cptx<- cpt
+cptx$SeaSurfaceTemp
+
+
+## create DF
+df <- as.data.frame(matrix(nrow=9, ncol = 7))
+colnames(df) <- c("Node", "Level", "ProbabilityOutput", "TestNode", "LowTemp", "MediumTemp", "HighTemp")
+
+df[,1] <- c("PopulationDecline", "PopulationDecline", "PopulationDecline",
+            "Growth", "Growth",
+            "Mortality", "Mortality", 
+            "ReproductiveRate", "ReproductiveRate")
+
+df[,2] <-c("Increased", "None", "Reduced",
+           "Effect", "No Effect",
+           "Effect", "No Effect",
+           "Effect", "No Effect") 
+
+## define prob combinations
+probs <- c("prob1", "prob2", "prob3")
+
+dfx <- NULL
+p=2
+
+## loop around combinations
+for (p in 1:length(probs)) {
+  
+  probsx <- probs[p]
+  
+  if (probsx == "prob1") {
+    ## low temps
+    cptx$SeaSurfaceTemp[1] <- 0## low
+    cptx$SeaSurfaceTemp[2] <- 0 ## medium
+    cptx$SeaSurfaceTemp[3] <- 1 ## high
+    
+  } else if (probsx == "prob2") {
+  
+    ## mid temps
+    cptx$SeaSurfaceTemp[1] <- 0## low
+    cptx$SeaSurfaceTemp[2] <- 1 ## medium
+    cptx$SeaSurfaceTemp[3] <- 0 ## high
+  
+  } else {
+  ## low 
+    cptx$SeaSurfaceTemp[1] <- 1## low
+    cptx$SeaSurfaceTemp[2] <- 0 ## medium
+    cptx$SeaSurfaceTemp[3] <- 0 ## high
+
+  }
+
+  # fit cpt table to network
+  bnx <- custom.fit(dummyBN, dist=cptx, debug = T)
+  
+  ## extract info
+  ## population
+  increasedPop <- cpquery(bnx, event = PopulationDecline == "Increased", evidence = TRUE)
+  nonePop <- cpquery(bnx, event = PopulationDecline == "none", evidence = TRUE)
+  decreasedPop <- cpquery(bnx, event = PopulationDecline == "Reduced", evidence = TRUE)
+  
+  ## growth
+  GrowthEffect <- cpquery(bnx, event = Growth == "Effect", evidence = TRUE)
+  GrowthNoEffect <- cpquery(bnx, event = Growth == "No Effect", evidence = TRUE)
+  
+  ## Mortality
+  MortEffect <- cpquery(bnx, event = Mortality == "Effect", evidence = TRUE)
+  MortNoEffect <- cpquery(bnx, event = Mortality == "No Effect", evidence = TRUE)
+  
+  # Reproduction
+  ReproEffect <- cpquery(bnx, event = ReproductiveRate == "Effect", evidence = TRUE)
+  ReproNoEffect <- cpquery(bnx, event = ReproductiveRate == "No Effect", evidence = TRUE)
+  
+  ## add to DF
+  
+  df[,3] <- c(increasedPop,nonePop,decreasedPop,GrowthEffect,GrowthNoEffect,MortEffect,MortNoEffect,ReproEffect,ReproNoEffect)
+  df[,4] <- "SST"
+  df[,5] <- cptx$SeaSurfaceTemp[1]
+  df[,6] <- cptx$SeaSurfaceTemp[2]
+  df[,7] <- cptx$SeaSurfaceTemp[3]
+  
+  
+  dfx <- bind_rows(dfx,df)
+  
+}
+
+dfx
+## take just effects
+# dfx1 <- dfx %>%
+#   filter(Level %in% c("Reduced", "Effect")) %>%
+#   mutate(Level = ifelse(ExtremeTemp == 1.0, "High", NA)) %>%
+#   mutate(Level = ifelse(ExtremeTemp == 0.0, "Medium", Level)) %>%
+#   mutate(Level = ifelse(ExtremeTemp == 0.5, "Low", Level)) %>%
+#   # pivot_longer(ExtremeTemp:NormalTemp, names_to = "SST", values_to = "Probability") #%>%
+#   select(-c(ExtremeTemp:NormalTemp)) %>%
+#   pivot_wider(names_from = Level, values_from = ProbabilityOutput)
+# 
+# dfx1
+
+## take just effects
+dfx1 <- dfx %>%
+  filter(Level %in% c("Reduced", "Effect")) %>%
+  pivot_longer(LowTemp:HighTemp, names_to = "Temp", values_to = "Probability") %>%
+  filter(!Probability ==0) %>%
+  pivot_wider(names_from = Temp, values_from = ProbabilityOutput)
+
+dfx1
+
+write.csv(dfx1, "output_data/05_Temp_3_runs.csv")
+
+dfP <- dfx1 %>%
+  select(-Probability) %>%
+  pivot_longer(LowTemp:HighTemp, names_to = "Temp", values_to = "Probability") %>%
+  mutate(Temp = as.factor(Temp)) %>%
+  mutate(Temp = recode_factor(Temp, LowTemp = "Low", MediumTemp = "Medium", HighTemp = "High"))
+dfP
+
+
+
+
+# uncertainty -------------------------------------------------------------
+bn_object <- bn
+set.seed(123)
+
+dim(cpt$Mortality) ## 2 3 3 2 2 2
+cpt$Mortality[, , ,1 , , ]
+dimnames(cpt$Mortality)
+cpt$Mortality
+# Assuming bn_object is your Bayesian network object with learned CPDs
+# Simulate data for 1000 cases
+# Simulate data from the Bayesian network
+table(cpdist(bn_object, nodes = c("MPConc"), (Mortality == "Effect"), n = 1000))
+
+simulated_dataM <- table(cpdist(bn_object, nodes = c("Mortality", "LifeStage", "SeaSurfaceTemp", "AirTemperature"), # 
+                          (MPConc == "Up to 69")))
+simulated_dataM
+
+counts_slice <- simulated_dataM[, , 1, 1] 
+counts_slice
+test <- apply(counts_slice, c(2), function(x) x / sum(x))
+
+tallyM <- simulated_dataM %>%  
+  pivot_longer(LifeStage:AirTemperature) %>%
+  group_by(MPConc, name, value) %>%
+  tally()  %>% 
+  mutate(np = n/sum(n)) #%>% rename(Mortality = np) %>% select(-n)
+  tallyM
+simulated_dataR <- cpdist(bn_object, nodes = c("MPConc"), (ReproductiveRate == "Effect"), n = 1000)
+tallyR <- simulated_dataR %>% group_by(MPConc) %>% tally() %>% 
+  mutate(np = n/sum(n)) %>% rename(ReproductiveRate = np) %>% select(-n)
+
+simulated_dataG <- cpdist(bn_object, nodes = c("MPConc"), (Growth == "Effect"), n = 1000)
+tallyG <- simulated_dataG %>% group_by(MPConc) %>% tally() %>% 
+  mutate(np = n/sum(n)) %>% rename(Growth = np) %>% select(-n)
+
+simulated_dataP <- cpdist(bn_object, nodes = c("MPConc"), (PopulationDecline == "Reduced"), n = 1000)
+tallyP <- simulated_dataP %>% group_by(MPConc) %>% tally() %>% 
+  mutate(np = n/sum(n)) %>% rename(PopulationDecline = np) %>% select(-n)
+
+simulated_data <- full_join(tallyM, tallyR, by = "MPConc")
+simulated_data <- full_join(simulated_data, tallyG, by = "MPConc")
+simulated_data <- full_join(simulated_data, tallyP, by = "MPConc")
+
+simulated_data
+# Identify input and output nodes
+input_nodes <- c("MPConc")  # Replace with your input nodes
+output_nodes <- c("Mortality")  # Replace with your output nodes
+
+# Perform sensitivity analysis by varying input nodes and observing output nodes
+sensitivity_results <- sensitivity(dummyBN, nodes = output_nodes, evidence = input_nodes, data = simulated_data)
+
+# View the sensitivity results
+print(sensitivity_results)
 
